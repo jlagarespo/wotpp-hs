@@ -26,6 +26,9 @@ source-repository head
 executable wotpp-exe
   main-is: Main.hs
   other-modules:
+      AST
+      Error
+      Eval
       Lexer
       Parser
       Paths_wotpp
@@ -34,6 +37,7 @@ executable wotpp-exe
   default-extensions:
       FlexibleContexts
       TupleSections
+      LambdaCase
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

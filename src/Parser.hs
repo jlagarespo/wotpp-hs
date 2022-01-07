@@ -3,42 +3,44 @@ module Parser where
 import Text.Parsec
 import Text.Parsec.String (Parser)
 
+import AST
 import Lexer
 
-type Identifier = String
-data Expr = ELiteral String | EInvoke Identifier [Expr] | EConcat Expr Expr | EMatch [(Expr, Expr)] deriving Show
-data Statement = SExpr Expr | SFunction Identifier [Identifier] Expr deriving Show
+-- TODO:
+-- - Migrate to megaparsec for proper error recovery.
+-- - Implement warnings.
 
 expr :: Parser Expr
 expr = (invoke <|> literal <|> match) `chainl1` cat
 
 literal :: Parser Expr
-literal = ELiteral <$> stringLiteral
+literal = ELit <$> stringLiteral
 
 invoke :: Parser Expr
 invoke = do
   id <- identifier
-  args <- option [] $parens $ expr `sepBy` reservedOp ","
-  pure $ EInvoke id args
+  args <- option [] $ parens $ expr `sepBy` reservedOp ","
+  pure $ EApp id args
 
 infixOp :: String -> (a -> a -> a) -> Parser (a -> a -> a)
 infixOp x f = reservedOp x >> pure f
 
 cat :: Parser (Expr -> Expr -> Expr)
-cat = infixOp ".." EConcat
+cat = infixOp ".." ECat
 
 match :: Parser Expr
 match = do
   reserved "match"
-  cond <- expr
+  what <- expr
+  reserved "to"
   branches <- many1 branch
-  pure $ EMatch branches
+  pure $ EMatch what branches
 
   where
     branch = do
       l <- literal
       reservedOp "->"
-      r <- expr
+      r <- body
       pure (l, r)
 
 statement :: Parser Statement
@@ -49,8 +51,21 @@ function = do
   reserved "let"
   name <- identifier
   params <- option [] $ parens $ identifier `sepBy` reservedOp ","
-  body <- expr
-  pure $ SFunction name params body
+  b <- body
+  pure $ SFunction name params b
+
+body :: Parser Body
+body = block <|> (Body [] <$> expr)
+  where
+    block = do
+      reservedOp "{"
+      statements <- many statement
+      -- TODO: Warnings:
+      -- - Warn about useless non-tail expressions (no side effects.)
+      -- - If there are no statements, warn about redundant braces.
+      tailExpr <- expr
+      reservedOp "}"
+      pure $ Body statements tailExpr
 
 document :: Parser [Statement]
 document = many1 statement <* eof

@@ -1,7 +1,2 @@
-let test() "hello"
-let cat(x, y) x .. y
-let catcat(x, y, z) cat(cat(x, y), z)
-hi("hello", "world", test(), nested("nested", nested("deep"), "hello"))
-match catcat("a", "b", "c")
-  "abc"  -> "correct!"
-  "asdf" -> "the universe is broken wtf"
+let cat(x, y) x .. " " .. y
+cat("hello", "world")

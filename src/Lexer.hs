@@ -14,9 +14,9 @@ wotppDef = LanguageDef
            , identStart      = identLetter wotppDef
            , identLetter     = alphaNum
            , opStart         = opLetter wotppDef
-           , opLetter        = oneOf ".,->"
-           , reservedNames   = ["let", "match"]
-           , reservedOpNames = ["..", "->", ","]
+           , opLetter        = oneOf ".,->{}()"
+           , reservedNames   = ["let", "match", "to"]
+           , reservedOpNames = ["..", "->", ",", "{", "}", "(", ")"]
            , caseSensitive   = True }
 
 lexer = makeTokenParser wotppDef
