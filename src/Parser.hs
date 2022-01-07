@@ -1,7 +1,8 @@
 module Parser where
 
+import Data.Text.Lazy (Text)
 import Text.Parsec
-import Text.Parsec.String (Parser)
+import Text.Parsec.Text.Lazy (Parser)
 
 import AST
 import Lexer
@@ -19,10 +20,10 @@ literal = ELit <$> stringLiteral
 invoke :: Parser Expr
 invoke = do
   id <- identifier
-  args <- option [] $ parens $ expr `sepBy` reservedOp ","
+  args <- option [] $ parens $ commaSep expr
   pure $ EApp id args
 
-infixOp :: String -> (a -> a -> a) -> Parser (a -> a -> a)
+infixOp :: Text -> (a -> a -> a) -> Parser (a -> a -> a)
 infixOp x f = reservedOp x >> pure f
 
 cat :: Parser (Expr -> Expr -> Expr)
@@ -50,7 +51,7 @@ function :: Parser Statement
 function = do
   reserved "let"
   name <- identifier
-  params <- option [] $ parens $ identifier `sepBy` reservedOp ","
+  params <- option [] $ parens $ commaSep identifier
   b <- body
   pure $ SFunction name params b
 

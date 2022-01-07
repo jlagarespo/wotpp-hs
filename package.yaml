@@ -32,6 +32,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - parsec
+    - text
     - unordered-containers
     - optparse-applicative
 
@@ -39,3 +40,4 @@ default-extensions:
 - FlexibleContexts
 - TupleSections
 - LambdaCase
+- OverloadedStrings

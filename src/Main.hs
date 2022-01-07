@@ -1,5 +1,6 @@
 module Main where
 
+import Data.Text.Lazy.IO as IO
 import Text.Parsec
 
 import Options.Applicative
@@ -22,7 +23,7 @@ main = do
             <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell."
             <> header "wot++ - A small macro language for producing and manipulating strings." )
 
-  source <- getContents
+  source <- IO.getContents
   let parseSource =
         case parse document "<stdin>" source of
           Left err -> Left $ ParseErr err
@@ -30,4 +31,4 @@ main = do
 
   case parseSource >>= evalStatements newenv of
     Left err     -> print err
-    Right (x, _) ->  putStrLn x
+    Right (x, _) -> IO.putStrLn x

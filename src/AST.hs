@@ -1,10 +1,11 @@
 module AST where
 
+import Data.Text.Lazy (Text, unpack)
 import Data.List (intercalate)
 
-type Identifier = String
+type Identifier = Text
 data Body = Body [Statement] Expr
-data Expr = ELit String | EApp Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Expr, Body)]
+data Expr = ELit Text | EApp Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Expr, Body)]
 data Statement = SExpr Expr | SFunction Identifier [Identifier] Body
 
 showArglist :: [String] -> String
@@ -16,14 +17,14 @@ instance Show Body where
     "{\n" ++ concatMap show statements ++ show expr ++ "\n}\n"
 
 instance Show Expr where
-  show (ELit s) = "\"" ++ s ++ "\""
-  show (EApp id args) = id ++ "(" ++ showArglist (map show args) ++ ")"
+  show (ELit s) = "\"" ++ unpack s ++ "\""
+  show (EApp id args) = unpack id ++ "(" ++ showArglist (map show args) ++ ")"
   show (ECat l r) = show l ++ " .. " ++ show r
   show (EMatch what branches) = "match " ++ show what ++ " to " ++ concatMap (\(pat, body) -> show pat ++ " -> " ++ show body ++ " ") branches
 
 instance Show Statement where
   show (SExpr e) = show e
   show (SFunction id params body) =
-    "let " ++ id ++ "(" ++ showArglist params ++ ") " ++ show body
+    "let " ++ unpack id ++ "(" ++ showArglist (map unpack params) ++ ") " ++ show body
 
 -- TODO: Make the left side of each match branch a proper pattern, as opposed to an expression.

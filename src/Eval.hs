@@ -1,5 +1,8 @@
 module Eval where
 
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as L
+
 import Data.HashMap.Strict (HashMap, (!?))
 import qualified Data.HashMap.Strict as HM
 
@@ -18,7 +21,7 @@ data Function = Function [Identifier] Body deriving Show
 newenv :: Env
 newenv = Env HM.empty
 
-evalExpr :: Env -> Expr -> Either Error String
+evalExpr :: Env -> Expr -> Either Error Text
 evalExpr _ (ELit str) = pure str
 evalExpr (Env functions) (EApp id args) = do
   -- Retrieve function from environment.
@@ -38,7 +41,7 @@ evalExpr (Env functions) (EApp id args) = do
 evalExpr env (ECat l r) = do
   l' <- evalExpr env l
   r' <- evalExpr env r
-  pure $ l' ++ r'
+  pure $ l' <> r'
 
 evalExpr env (EMatch what branches) = do
   what' <- evalExpr env what
@@ -47,17 +50,17 @@ evalExpr env (EMatch what branches) = do
     Just (l, r) -> evalBody env r
     Nothing -> Left $ EvalErr $ MatchFail what (length branches)
 
-evalBody :: Env -> Body -> Either Error String
+evalBody :: Env -> Body -> Either Error Text
 evalBody env (Body statements expr) = do
   (_, newenv) <- evalStatements env statements
   evalExpr newenv expr
 
 
-evalStatements :: Env -> [Statement] -> Either Error (String, Env)
+evalStatements :: Env -> [Statement] -> Either Error (Text, Env)
 evalStatements env ((SExpr expr):ss) = do
   (rest, env') <- evalStatements env ss
   e <- evalExpr env expr
-  pure (e ++ rest, env')
+  pure (e <> rest, env')
 
 evalStatements (Env functions) ((SFunction id params body):ss) =
   -- TODO: Function shadowing warnings.
