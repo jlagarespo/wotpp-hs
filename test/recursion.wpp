@@ -4,4 +4,4 @@ let last(list)
 		x -> x
 	}
 
-last("1, 5")
+last("1, 2, 3, 4, 5") #[ returns "5" ]
