@@ -30,6 +30,7 @@ symbol s = Tok.symbol lexer (L.unpack s)
 reserved s = Tok.reserved lexer (L.unpack s)
 reservedOp s = Tok.reservedOp lexer (L.unpack s)
 parens = Tok.parens lexer
+braces = Tok.braces lexer
 -- TODO: Use proper wot++ like string lexing.
 stringLiteral = L.pack <$> Tok.stringLiteral lexer
 commaSep = Tok.commaSep lexer

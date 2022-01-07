@@ -1,0 +1,6 @@
+let test {
+	let hi "hi"
+	hi
+}
+
+test

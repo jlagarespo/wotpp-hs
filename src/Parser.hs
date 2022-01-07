@@ -7,9 +7,8 @@ import Text.Parsec.Text.Lazy (Parser)
 import AST
 import Lexer
 
--- TODO:
--- - Migrate to megaparsec for proper error recovery.
--- - Implement warnings.
+-- TODO: Migrate to megaparsec for proper error recovery.
+-- TODO: Implement warnings.
 
 expr :: Parser Expr
 expr = (invoke <|> literal <|> match) `chainl1` cat
@@ -34,15 +33,22 @@ match = do
   reserved "match"
   what <- expr
   reserved "to"
-  branches <- many1 branch
+  branches <- braces $ many1 branch
   pure $ EMatch what branches
 
   where
     branch = do
-      l <- literal
+      l <- patt
       reservedOp "->"
       r <- body
       pure (l, r)
+
+patt :: Parser Pattern
+patt = (pattLiteral <|> wildLiteral) `chainl1` pattCat
+  where
+    pattLiteral = PLit <$> stringLiteral
+    wildLiteral = PWild <$> identifier
+    pattCat = infixOp ".." PCat
 
 statement :: Parser Statement
 statement = (SExpr <$> expr) <|> function
@@ -56,17 +62,15 @@ function = do
   pure $ SFunction name params b
 
 body :: Parser Body
-body = block <|> (Body [] <$> expr)
+body = braces block <|> (Body [] <$> expr)
   where
     block = do
-      reservedOp "{"
-      statements <- many statement
-      -- TODO: Warnings:
-      -- - Warn about useless non-tail expressions (no side effects.)
-      -- - If there are no statements, warn about redundant braces.
-      tailExpr <- expr
-      reservedOp "}"
-      pure $ Body statements tailExpr
+      statements <- many1 statement
+      -- TODO: Warn about useless non-tail expressions (no side effects.)
+      -- TODO: If there are no statements, warn about redundant braces.
+      case last statements of
+        (SExpr tailExpr) -> pure $ Body (init statements) tailExpr
+        _ -> fail "The last statement of a block must be an expression."
 
 document :: Parser [Statement]
-document = many1 statement <* eof
+document = many statement <* eof

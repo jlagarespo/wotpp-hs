@@ -19,9 +19,9 @@ main :: IO ()
 main = do
   opts <- execParser $
           info (options <**> helper)
-          ( fullDesc
-            <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell."
-            <> header "wot++ - A small macro language for producing and manipulating strings." )
+          (fullDesc
+           <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell."
+           <> header "wot++ - A small macro language for producing and manipulating strings.")
 
   source <- IO.getContents
   let parseSource =

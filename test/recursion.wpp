@@ -1,0 +1,7 @@
+let last(list)
+	match list to {
+		x .. ", " .. xs -> last(xs)
+		x -> x
+	}
+
+last("1, 5")

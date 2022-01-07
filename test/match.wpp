@@ -1,0 +1,19 @@
+let nl "\n"
+let inv "Invalid format!"
+
+match "abc" to {
+	"abc" -> "yes"
+	x     -> "no"
+}
+nl
+
+match "It's spam, I love it!" to {
+	"It's " .. x .. ", I love it!" -> x
+	x -> inv
+}
+nl
+
+match "2+2=4" to {
+	x.."+"..y.."="..z -> x .. ", " .. y .. ", " .. z
+	x -> inv
+}
