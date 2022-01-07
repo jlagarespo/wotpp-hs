@@ -1,4 +1,5 @@
-let cat(x, y) x .. " " .. y
+let id(x) x
+let cat(x, y) id(x) .. " " .. id(y)
 cat("hello", "world")
 "\n"
 
