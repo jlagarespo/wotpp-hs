@@ -2,10 +2,14 @@ module Eval where
 
 import Data.HashMap.Strict (HashMap, (!?))
 import qualified Data.HashMap.Strict as HM
+
+import Data.Either (rights)
+import Data.List (find)
 import Data.Maybe (fromMaybe)
 
 import AST
 import Error
+import Util (onlyRights)
 
 type FuncId = (Identifier, Int)
 newtype Env = Env (HashMap (Identifier, Int) Function)
@@ -18,7 +22,7 @@ evalExpr :: Env -> Expr -> Either Error String
 evalExpr _ (ELit str) = pure str
 evalExpr (Env functions) (EApp id args) = do
   -- Retrieve function from environment.
-  (Function params (Body statements expr)) <-
+  (Function params body) <-
     case functions !? (id, length args) of
       Nothing -> Left $ EvalErr $ NotInScope id (length args)
       Just f  -> pure f
@@ -29,15 +33,25 @@ evalExpr (Env functions) (EApp id args) = do
       env' = Env (functions `HM.union` newfuncs)
 
   -- Evaluate all the statements to acquire our final environment.
-  (_, newenv) <- evalStatements env' statements
-  evalExpr newenv expr
+  evalBody env' body
 
 evalExpr env (ECat l r) = do
   l' <- evalExpr env l
   r' <- evalExpr env r
   pure $ l' ++ r'
 
-evalExpr _ (EMatch _ _) = undefined
+evalExpr env (EMatch what branches) = do
+  what' <- evalExpr env what
+  branches' <- onlyRights $ map (\(l, r) -> (, r) <$> evalExpr env l) branches
+  case find (\(l, r) -> l == what') branches' of
+    Just (l, r) -> evalBody env r
+    Nothing -> Left $ EvalErr $ MatchFail what (length branches)
+
+evalBody :: Env -> Body -> Either Error String
+evalBody env (Body statements expr) = do
+  (_, newenv) <- evalStatements env statements
+  evalExpr newenv expr
+
 
 evalStatements :: Env -> [Statement] -> Either Error (String, Env)
 evalStatements env ((SExpr expr):ss) = do

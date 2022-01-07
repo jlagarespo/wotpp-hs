@@ -1,2 +1,7 @@
 let cat(x, y) x .. " " .. y
 cat("hello", "world")
+"\n"
+
+match "abc" to
+  "abc"  -> "yes"
+  "asdf" -> "no"
