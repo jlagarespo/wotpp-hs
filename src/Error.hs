@@ -6,7 +6,9 @@ import Text.Parsec
 
 import AST
 
-data EvalError = NotInScope Identifier Int | MatchFail Expr Int
+data EvalError = NotInScope Identifier Int |
+                 FunctionMatchFail Identifier Int Int |
+                 MatchFail Expr Int
 data Error = EvalErr EvalError Expr Backtrace | ParseErr ParseError
 
 data TraceElement = TraceFunc Identifier [Expr] | TraceExpr Expr | TraceBranch [(Identifier, Text)] Pattern Body
@@ -20,7 +22,8 @@ showTrace :: Backtrace -> String
 showTrace trace = if null trace then "" else "• " ++ intercalate "\n  " (map (\x -> "In " ++ show x) trace)
 
 instance Show EvalError where
-  show (NotInScope id args) = "Applying " ++ show args ++ " arguments to function " ++ unpack id ++ " not in scope."
+  show (NotInScope id args) = "Failed to appply " ++ show args ++ " arguments to function " ++ unpack id ++ ", which is not in scope."
+  show (FunctionMatchFail id args count) = "Failed to match " ++ unpack id ++ " (" ++ show args ++ " arguments) against " ++ show count ++ " candidates."
   show (MatchFail what n) = "Failed to match " ++ show what ++ " against " ++ show n ++ " patterns. Please ensure all your matches are exhaustive."
 
 instance Show Error where

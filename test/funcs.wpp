@@ -3,4 +3,8 @@ let test {
 	hi
 }
 
+let id(x) x
+let cat(x, y) id(x) .. id(y)
+
 test
+cat("hello", "world")

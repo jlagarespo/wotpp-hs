@@ -6,6 +6,7 @@ import qualified Data.Text.Lazy as L
 import Data.HashMap.Strict (HashMap, (!?))
 import qualified Data.HashMap.Strict as HM
 
+import Data.Bifunctor (second)
 import Data.List (find)
 import Data.Maybe (fromMaybe, mapMaybe, isJust)
 
@@ -16,10 +17,9 @@ import AST
 import Error
 import Util (onlyRights, safeHead)
 
-type FuncId = (Identifier, Int)
 data Function = Function [Identifier] Body deriving Show
 data Env = Env
-  { functions :: HashMap FuncId Function
+  { functions :: HashMap Identifier [Function]
   , trace :: Backtrace }
 
 evalError :: Env -> Expr -> EvalError -> Either Error a
@@ -28,24 +28,33 @@ evalError (Env _ trace) expr err = Left $ EvalErr err expr trace
 newenv :: Env
 newenv = Env HM.empty []
 
-addFuncs :: [(FuncId, Function)] -> Env -> Env
-addFuncs funcs env = env { functions = foldl (\fs (id, f) -> HM.insert id f fs) (functions env) funcs }
+addConstants :: [(Identifier, Expr)] -> Env -> Env
+addConstants ks env =
+  env { functions = foldl (\fs (id, k) -> HM.insert id [Function [] (Body [] k)] fs)
+                    (functions env) ks }
 
 evalExpr :: Env -> Expr -> Either Error Text
 evalExpr _ (ELit str) = pure str
 evalExpr env e@(EApp id args) = do
-  let fs = functions env
-
-  -- Retrieve function from environment.
-  (Function params body) <-
-    case fs !? (id, length args) of
+  -- Retrieve all functions with identifier 'id' from the environment.
+  candidates <-
+    case functions env !? id of
       Nothing -> evalError env e $ NotInScope id (length args)
+      Just fs -> pure fs
+
+  -- Match the provided arguments against them.
+  (Function params body) <-
+    case find (\(Function params _) -> length params == length args) candidates of
+      Nothing -> evalError env e $ FunctionMatchFail id (length args) (length candidates)
       Just f  -> pure f
 
-  -- Add arguments to the environment as unevaluated functions.
+  -- Add arguments to the environment as parameterless functions (constants.)
   -- TODO: Parameter shadowing warnings.
-  let newfuncs = zipWith (\param arg -> ((param, 0), Function [] (Body [] arg))) params args
-      env' = addFuncs newfuncs env { trace = TraceFunc id args:trace env }
+  -- Arguments MUST be strictly evaluated, since if they're lazily evaluated, the environment
+  -- might've changed a few levels deep. TODO: Store the environment along with the arguments to
+  -- evaluate them later (I suppose a sort of thunk?)
+  argValues <- mapM (fmap ELit . evalExpr env) args
+  let env' = addConstants (zip params argValues) env { trace = TraceFunc id args:trace env }
 
   -- Evaluate all the statements to acquire our final environment.
   evalBody env' body
@@ -65,8 +74,9 @@ evalExpr env e@(EMatch what branches) = do
   -- We take the first succesful match and evaluate the right-hand side. If none match, error.
   case safeHead branches' of
     Just (wildcards, patt, body) ->
-      let newfuncs = map (\(id, val) -> ((id, 0), Function [] (Body [] (ELit val)))) wildcards
-      in evalBody (addFuncs newfuncs env { trace = TraceBranch wildcards patt body:trace env }) body
+      let env' = addConstants (map (second ELit) wildcards) env
+                 { trace = TraceBranch wildcards patt body:trace env }
+      in evalBody env' body
     Nothing -> evalError env e $ MatchFail what (length branches)
 
   where
@@ -89,14 +99,16 @@ evalBody env (Body statements expr) = do
 
 evalStatements :: Env -> [Statement] -> Either Error (Text, Env)
 evalStatements env ((SExpr expr):ss) = do
-  (rest, env') <- evalStatements env ss
   e <- evalExpr (env { trace = TraceExpr expr:trace env }) expr
+  (rest, env') <- evalStatements env ss
   pure (e <> rest, env')
 
 evalStatements env ((SFunction id params body):ss) =
   -- TODO: Function shadowing warnings (or errors?).
   let func = Function params body
-      env' = addFuncs [((id, length params), func)] env
+      env' = env { functions = HM.alter (\case Just fs -> Just $ func:fs
+                                               Nothing -> Just [func])
+                               id (functions env) }
   in evalStatements env' ss
 
 evalStatements env [] = pure ("", env)
