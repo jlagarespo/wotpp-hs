@@ -3,50 +3,58 @@ module Eval where
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as L
 
-import Data.HashMap.Strict (HashMap, (!?))
+import Data.HashMap.Strict (HashMap, empty, (!?))
 import qualified Data.HashMap.Strict as HM
 
 import Data.Bifunctor (second)
 import Data.List (find)
 import Data.Maybe (fromMaybe, mapMaybe, isJust)
+import Data.Hashable
 
-import Text.Parsec
 import Text.Parsec.Text.Lazy (Parser)
 
 import AST
 import Error
-import Util (onlyRights, safeHead)
+import Util (safeHead)
 
 data Function = Function [Identifier] Body deriving Show
 data Env = Env
   { functions :: HashMap Identifier [Function]
+  , arguments :: HashMap Identifier Expr
   , trace :: Backtrace }
 
 evalError :: Env -> Expr -> EvalError -> Either Error a
-evalError (Env _ trace) expr err = Left $ EvalErr err expr trace
+evalError (Env _ _ trace) expr err = Left $ EvalErr err expr trace
 
 newenv :: Env
-newenv = Env HM.empty []
+newenv = Env empty empty []
 
-addConstants :: [(Identifier, Expr)] -> Env -> Env
-addConstants ks env =
-  env { functions = foldl (\fs (id, k) -> HM.insert id [Function [] (Body [] k)] fs)
-                    (functions env) ks }
+insertMany :: (Eq k, Hashable k) => HashMap k v -> [(k, v)] -> HashMap k v
+insertMany = foldl (\hm (k, v) -> HM.insert k v hm)
 
 evalExpr :: Env -> Expr -> Either Error Text
 evalExpr _ (ELit str) = pure str
 evalExpr env e@(EApp id args) = do
-  -- Retrieve all functions with identifier 'id' from the environment.
-  candidates <-
-    case functions env !? id of
-      Nothing -> evalError env e $ NotInScope id (length args)
-      Just fs -> pure fs
-
-  -- Match the provided arguments against them.
+  -- Retrieve function from environment.
   (Function params body) <-
-    case find (\(Function params _) -> length params == length args) candidates of
-      Nothing -> evalError env e $ FunctionMatchFail id (length args) (length candidates)
-      Just f  -> pure f
+    -- Check whether the identifier we're calling refers to a function or an argument (arguments are
+    -- scope-local and shadow functions.)
+    case arguments env !? id of
+      -- If it's not, look for a proper function.
+      Nothing -> do
+        -- Retrieve all functions with identifier 'id' from the environment.
+        candidates <-
+          case functions env !? id of
+            Nothing -> evalError env e $ NotInScope id (length args)
+            Just fs -> pure fs
+
+        -- Find one with the appropiate number of arguments.
+        case find (\(Function params _) -> length params == length args) candidates of
+          Nothing -> evalError env e $ FunctionMatchFail id (length args) (length candidates)
+          Just f  -> pure f
+
+      -- Otherwise, it must be an argument.
+      Just arg -> pure $ Function [] $ Body [] arg
 
   -- Add arguments to the environment as parameterless functions (constants.)
   -- TODO: Parameter shadowing warnings.
@@ -54,7 +62,8 @@ evalExpr env e@(EApp id args) = do
   -- might've changed a few levels deep. TODO: Store the environment along with the arguments to
   -- evaluate them later (I suppose a sort of thunk?)
   argValues <- mapM (fmap ELit . evalExpr env) args
-  let env' = addConstants (zip params argValues) env { trace = TraceFunc id args:trace env }
+  let env' = env { arguments = insertMany (arguments env) (zip params argValues)
+                 , trace = TraceFunc id args:trace env }
 
   -- Evaluate all the statements to acquire our final environment.
   evalBody env' body
@@ -74,8 +83,8 @@ evalExpr env e@(EMatch what branches) = do
   -- We take the first succesful match and evaluate the right-hand side. If none match, error.
   case safeHead branches' of
     Just (wildcards, patt, body) ->
-      let env' = addConstants (map (second ELit) wildcards) env
-                 { trace = TraceBranch wildcards patt body:trace env }
+      let env' = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
+                     , trace = TraceBranch wildcards patt body:trace env }
       in evalBody env' body
     Nothing -> evalError env e $ MatchFail what (length branches)
 

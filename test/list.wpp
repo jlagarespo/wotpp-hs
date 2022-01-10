@@ -1,0 +1,64 @@
+let inv "Invalid format!"
+let nl "\n"
+let cons(x, y) "(" .. x .. ", " .. y .. ")"
+let end "()"
+let empty end
+
+let car(l)
+	match l to {
+		"(" .. x .. ", " .. xs .. ")" -> x
+		l -> inv
+	}
+
+let cdr(l)
+	match l to {
+		"(" .. x .. ", " .. xs .. ")" -> xs
+		l -> inv
+	}
+
+let last(l)
+	match cdr(l) to {
+		"(" .. x .. ", ())" -> x
+		x -> last(x)
+	}
+
+let init(l)
+	match cdr(l) to {
+		"(" .. x .. ", ())" -> empty
+		x -> cons(car(l), init(x))
+	}
+
+let reverse(l) {
+	let rev(l, a)
+		match l to {
+			"()" -> a
+			l    -> rev(cdr(l), cons(car(l), a))
+		}
+
+	rev(l, empty)
+}
+
+let reduce(l)
+	match l to {
+		"()" -> ""
+		l    -> car(l) .. reduce(cdr(l))
+	}
+
+let concat(a, b)
+	match a to {
+		"()" -> b
+		a    -> cons(car(a), concat(cdr(a), b))
+	}
+
+let test cons("h", cons("e", cons("l", cons("l", cons("o", end)))))
+"test:          " test nl
+"car(test):     " car(test) nl
+"cdr(test):     " cdr(test) nl
+"last(test):    " last(test) nl
+"init(test):    " init(test) nl
+"reverse(test): " reverse(test) nl
+"reduce(test):  " reduce(test) nl
+
+let test2 cons(" ", cons("w", cons("o", cons("r", cons("l", cons("d", end))))))
+"test2:         " test2 nl
+"reduce(concat(test, test2)): " reduce(concat(test, test2))

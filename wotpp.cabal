@@ -43,6 +43,7 @@ executable wotpp-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , hashable
     , optparse-applicative
     , parsec
     , text

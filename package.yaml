@@ -35,6 +35,7 @@ executables:
     - text
     - unordered-containers
     - optparse-applicative
+    - hashable
 
 default-extensions:
 - FlexibleContexts
