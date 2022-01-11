@@ -7,13 +7,13 @@ let empty end
 let car(l)
 	match l to {
 		"(" .. x .. ", " .. xs .. ")" -> x
-		l -> inv
+		_ -> inv
 	}
 
 let cdr(l)
 	match l to {
 		"(" .. x .. ", " .. xs .. ")" -> xs
-		l -> inv
+		_ -> inv
 	}
 
 let last(l)

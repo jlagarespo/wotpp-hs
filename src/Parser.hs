@@ -1,6 +1,7 @@
 module Parser where
 
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as L
 import Text.Parsec
 import Text.Parsec.Text.Lazy (Parser)
 
@@ -23,23 +24,23 @@ invoke = do
   pure $ EApp id args
 
 infixOp :: Text -> (a -> a -> a) -> Parser (a -> a -> a)
-infixOp x f = reservedOp x >> pure f
+infixOp x f = symbol x >> pure f
 
 cat :: Parser (Expr -> Expr -> Expr)
 cat = infixOp ".." ECat
 
 match :: Parser Expr
 match = do
-  reserved "match"
+  symbol "match"
   what <- expr
-  reserved "to"
+  symbol "to"
   branches <- braces $ many1 branch
   pure $ EMatch what branches
 
   where
     branch = do
       l <- patt
-      reservedOp "->"
+      symbol "->"
       r <- body
       pure (l, r)
 
@@ -55,7 +56,7 @@ statement = (SExpr <$> expr) <|> function
 
 function :: Parser Statement
 function = do
-  reserved "let"
+  symbol "let"
   name <- identifier
   params <- option [] $ parens $ commaSep identifier
   b <- body

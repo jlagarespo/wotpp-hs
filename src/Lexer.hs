@@ -1,36 +1,74 @@
-module Lexer where
+ module Lexer where
 
-import Data.Char (isSpace)
-import Text.Parsec (alphaNum, oneOf)
-import qualified Text.Parsec.Token as Tok
-import Text.Parsec.Token (LanguageDef, GenLanguageDef(..), makeTokenParser)
+import Data.Char (isSymbol)
+import Data.List (isInfixOf)
+import Text.Parsec
+-- import Text.Parsec.Char
+-- import qualified Text.Parsec.Token as Tok
+-- import Text.Parsec.Token (LanguageDef, GenLanguageDef(..), makeTokenParser)
+import Text.Parsec.Text.Lazy (Parser)
+import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as L
 
 import Data.Functor.Identity (Identity)
 
-wotppDef :: GenLanguageDef L.Text u Identity
-wotppDef = LanguageDef
-           { commentStart    = "#["
-           , commentEnd      = "]"
-           , commentLine     = ""
-           , nestedComments  = True
-           , identStart      = identLetter wotppDef
-           , identLetter     = alphaNum
-           , opStart         = opLetter wotppDef
-           , opLetter        = oneOf ".,->{}()"
-           , reservedNames   = ["let", "match", "to"]
-           , reservedOpNames = ["..", "->", ",", "{", "}", "(", ")"]
-           , caseSensitive   = True }
+lexeme :: Parser a -> Parser a
+lexeme p = do
+  x <- p
+  futile
+  pure x
 
-lexer :: Tok.GenTokenParser L.Text () Identity
-lexer = makeTokenParser wotppDef
+  where
+    futile = skipMany $ whitespace <|> comment
+    whitespace = space >> pure ()
 
-identifier = L.pack <$> Tok.identifier lexer
-symbol s = Tok.symbol lexer (L.unpack s)
-reserved s = Tok.reserved lexer (L.unpack s)
-reservedOp s = Tok.reservedOp lexer (L.unpack s)
-parens = Tok.parens lexer
-braces = Tok.braces lexer
--- TODO: Use proper wot++ like string lexing.
-stringLiteral = L.pack <$> Tok.stringLiteral lexer
-commaSep = Tok.commaSep lexer
+symbol = (L.pack<$>) . lexeme . try . string . L.unpack
+
+identifier :: Parser Text
+identifier = lexeme $ try $ do
+  str <- many1 identChar
+  if isKeyword str
+    then unexpected ("reserved token " <> str)
+    else pure $ L.pack str
+
+  where
+    identChar = alphaNum <|> digit <|> oneOf "'_"
+    keywords = ["let", "match", "to"]
+    isKeyword = (`elem` keywords)
+
+parens, braces :: Parser a -> Parser a
+parens = between (symbol "(") (symbol ")")
+braces = between (symbol "{") (symbol "}")
+
+commaSep, commaSep1 :: Parser a -> Parser [a]
+commaSep = (`sepBy` symbol ",")
+commaSep1 = (`sepBy1` symbol ",")
+
+stringLiteral :: Parser Text
+stringLiteral = lexeme $ try $ do
+  str <- between (char '"') (char '"') (many $ strEscape <|> strChar)
+  pure $ L.pack str
+
+  where
+    strChar, strEscape :: Parser Char
+    strChar = satisfy (/= '"')
+    strEscape = do
+      char '\\'
+      v <- choice $ map char "nrtb"
+      case v of
+        'n' -> pure '\n'
+        'r' -> pure '\r'
+        't' -> pure '\t'
+        'b' -> pure '\b'
+        _   -> undefined
+
+comment = symbol "#[" >> inComment
+  where
+    inComment = (symbol "]" >> pure ())
+            <|> (comment >> inComment)
+            <|> (skipMany (noneOf startEnd) >> inComment)
+            <|> (oneOf startEnd >> inComment)
+
+    start = "#["
+    end = "]"
+    startEnd = start <> end

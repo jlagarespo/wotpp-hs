@@ -3,6 +3,7 @@ let cat(x, y) id(x) .. " " .. id(y)
 cat("hello", "world")
 "\n"
 
-match "abc" to
-  "abc"  -> "yes"
-  "asdf" -> "no"
+match "abc" to {
+	"abc"  -> "yes"
+	"asdf" -> "no"
+}
