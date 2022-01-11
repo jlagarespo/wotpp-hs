@@ -24,11 +24,6 @@ main = do
            <> header "wot++ - A small macro language for producing and manipulating strings.")
 
   source <- IO.getContents
-  let parseSource =
-        case parse document "<stdin>" source of
-          Left err -> Left $ ParseErr err
-          Right x  -> Right x
-
-  case parseSource >>= evalStatements newenv of
-    Left err     -> print err
-    Right (x, _) -> IO.putStrLn x
+  case parseDocument source >>= evalDocument newenv of
+    Left err -> print err
+    Right x  -> IO.putStrLn x

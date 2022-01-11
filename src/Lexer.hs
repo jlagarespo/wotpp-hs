@@ -3,9 +3,7 @@
 import Data.Char (isSymbol)
 import Data.List (isInfixOf)
 import Text.Parsec
--- import Text.Parsec.Char
--- import qualified Text.Parsec.Token as Tok
--- import Text.Parsec.Token (LanguageDef, GenLanguageDef(..), makeTokenParser)
+
 import Text.Parsec.Text.Lazy (Parser)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as L

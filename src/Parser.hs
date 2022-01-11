@@ -6,6 +6,7 @@ import Text.Parsec
 import Text.Parsec.Text.Lazy (Parser)
 
 import AST
+import Error
 import Lexer
 
 -- TODO: Migrate to megaparsec for proper error recovery.
@@ -75,3 +76,8 @@ body = braces block <|> (Body [] <$> expr)
 
 document :: Parser [Statement]
 document = many statement <* eof
+
+parseDocument :: Text -> Either Error [Statement]
+parseDocument x = case parse document "<stdin>" x of
+                    Left err -> Left $ ParseErr err
+                    Right x  -> Right x

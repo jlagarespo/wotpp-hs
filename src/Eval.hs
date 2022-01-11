@@ -103,21 +103,28 @@ evalExpr env e@(EMatch what branches) = do
 
 evalBody :: Env -> Body -> Either Error Text
 evalBody env (Body statements expr) = do
-  (_, env') <- evalStatements env statements
+  env' <- foldl (\e statement -> do
+                    env <- e
+                    (_, env') <- evalStatement env statement
+                    pure env') (pure env) statements
   evalExpr env' expr
 
-evalStatements :: Env -> [Statement] -> Either Error (Text, Env)
-evalStatements env ((SExpr expr):ss) = do
-  e <- evalExpr (env { trace = TraceExpr expr:trace env }) expr
-  (rest, env') <- evalStatements env ss
-  pure (e <> rest, env')
+evalStatement :: Env -> Statement -> Either Error (Text, Env)
+evalStatement env (SExpr expr) = do
+  str <- evalExpr (env { trace = TraceExpr expr:trace env }) expr
+  pure (str, env)
 
-evalStatements env ((SFunction id params body):ss) =
+evalStatement env (SFunction id params body) =
   -- TODO: Function shadowing warnings (or errors?).
   let func = Function params body
       env' = env { functions = HM.alter (\case Just fs -> Just $ func:fs
                                                Nothing -> Just [func])
                                id (functions env) }
-  in evalStatements env' ss
+  in pure ("", env')
 
-evalStatements env [] = pure ("", env)
+evalDocument :: Env -> [Statement] -> Either Error Text
+evalDocument env statements =
+  fst <$> foldl (\acc statement -> do
+                    (str, env) <- acc
+                    (str', env') <- evalStatement env statement
+                    pure (str <> str', env')) (pure ("", env)) statements
