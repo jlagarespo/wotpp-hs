@@ -33,6 +33,7 @@ executables:
     dependencies:
     - parsec
     - text
+    - text-show
     - unordered-containers
     - optparse-applicative
     - hashable

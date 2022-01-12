@@ -17,7 +17,7 @@ import AST
 import Error
 import Util (safeHead)
 
-data Function = Function [Identifier] Body deriving Show
+data Function = Function [Identifier] Body
 data Env = Env
   { functions :: HashMap Identifier [Function]
   , arguments :: HashMap Identifier Expr

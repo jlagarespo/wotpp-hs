@@ -20,10 +20,10 @@ main = do
   opts <- execParser $
           info (options <**> helper)
           (fullDesc
-           <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell."
-           <> header "wot++ - A small macro language for producing and manipulating strings.")
+           <> header "wot++ - A small macro language for producing and manipulating strings."
+           <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell.")
 
   source <- IO.getContents
   case parseDocument source >>= evalDocument newenv of
-    Left err -> print err
+    Left err -> IO.putStrLn $ showError err
     Right x  -> IO.putStrLn x

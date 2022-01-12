@@ -47,5 +47,6 @@ executable wotpp-exe
     , optparse-applicative
     , parsec
     , text
+    , text-show
     , unordered-containers
   default-language: Haskell2010

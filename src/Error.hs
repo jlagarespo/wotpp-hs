@@ -1,7 +1,8 @@
 module Error where
 
-import Data.List (intercalate)
-import Data.Text.Lazy (Text, unpack)
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as L
+import TextShow
 import Text.Parsec
 
 import AST
@@ -14,25 +15,24 @@ data Error = EvalErr EvalError Expr Backtrace | ParseErr ParseError
 data TraceElement = TraceFunc Identifier [Expr] | TraceExpr Expr | TraceBranch [(Identifier, Text)] Pattern Body
 type Backtrace = [TraceElement]
 
--- TODO: Use Text Show instead of String.
 -- TODO: Position information for eval errors. (Add position information to AST nodes.)
 -- TODO: Proper indentation.
 
-showTrace :: Backtrace -> String
-showTrace trace = if null trace then "" else "• " ++ intercalate "\n  " (map (\x -> "In " ++ show x) trace)
+showTrace :: Backtrace -> Text
+showTrace trace = if null trace then "" else "• " <> L.intercalate "\n  " (map (\x -> "In " <> showTraceElement x) trace)
 
-instance Show EvalError where
-  show (NotInScope id args) = "Failed to appply " ++ show args ++ " arguments to function " ++ unpack id ++ ", which is not in scope."
-  show (FunctionMatchFail id args count) = "Failed to match " ++ unpack id ++ " (" ++ show args ++ " arguments) against " ++ show count ++ " candidates."
-  show (MatchFail what n) = "Failed to match " ++ show what ++ " against " ++ show n ++ " patterns. Please ensure all your matches are exhaustive."
+showTraceElement :: TraceElement -> Text
+showTraceElement (TraceFunc id args) = "function call to " <> id <> commaList (map showExpr args)
+showTraceElement (TraceExpr expr) = "expression:\n    " <> showExpr expr
+showTraceElement (TraceBranch wildcards patt body) =
+  "match branch:\n    " <> showPattern patt <> " " <> commaList (map (\(id, x) -> id <> " = " <> x) wildcards) <>
+  " -> " <> showBody body
 
-instance Show Error where
-  show (EvalErr err expr trace) = "eval error:\n• " ++ show err ++ "\n" ++ showTrace trace
-  show (ParseErr err) = "parse error:\n• " ++ show err
+showEvalError :: EvalError -> Text
+showEvalError (NotInScope id args) = "Failed to appply " <> showtl args <> " arguments to function " <> id <> ", which is not in scope."
+showEvalError (FunctionMatchFail id args count) = "Failed to match " <> id <> " (" <> showtl args <> " arguments) against " <> showtl count <> " candidates."
+showEvalError (MatchFail what n) = "Failed to match " <> showExpr what <> " against " <> showtl n <> " patterns. Please ensure all your matches are exhaustive."
 
-instance Show TraceElement where
-  show (TraceFunc id args) = "function call to " ++ unpack id ++ commaList (map show args)
-  show (TraceExpr expr) = "expression:\n    " ++ show expr
-  show (TraceBranch wildcards patt body) =
-    "match branch:\n    " ++ show patt ++ " " ++ commaList (map (\(id, x) -> unpack id ++ " = " ++ unpack x) wildcards) ++
-    " -> " ++ show body
+showError :: Error -> Text
+showError (EvalErr err expr trace) = "eval error:\n• " <> showEvalError err <> "\n" <> showTrace trace
+showError (ParseErr err) = "parse error:\n• " <> L.pack (show err)

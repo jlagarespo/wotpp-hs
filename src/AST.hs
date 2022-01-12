@@ -1,7 +1,7 @@
 module AST where
 
-import Data.Text.Lazy (Text, unpack)
-import Data.List (intercalate)
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as L
 
 type Identifier = Text
 data Body = Body [Statement] Expr
@@ -9,29 +9,24 @@ data Expr = ELit Text | EApp Identifier [Expr] | ECat Expr Expr | EMatch Expr [(
 data Pattern = PLit Text | PWild Identifier | PCat Pattern Pattern
 data Statement = SExpr Expr | SFunction Identifier [Identifier] Body
 
-commaList :: [String] -> String
+commaList :: [Text] -> Text
 commaList [] = ""
-commaList x = "(" ++ intercalate ", " x ++ ")"
+commaList x = "(" <> L.intercalate ", " x <> ")"
 
-showBlock :: [String] -> String
-showBlock statements = "{\n" ++ concatMap (\x -> "\t" ++ x ++ "\n") statements ++ "}"
+showBlock :: [Text] -> Text
+showBlock statements = "{\n" <> L.concat (map (\x -> "\t" <> x <> "\n") statements) <> "}"
 
-instance Show Body where
-  show (Body [] expr) = show expr
-  show (Body statements expr) = showBlock $ map show statements ++ [show expr]
+showBody (Body [] expr) = showExpr expr
+showBody (Body statements expr) = showBlock $ map showStatement statements <> [showExpr expr]
 
-instance Show Expr where
-  show (ELit s) = "\"" ++ unpack s ++ "\""
-  show (EApp id args) = unpack id ++ commaList (map show args)
-  show (ECat l r) = show l ++ " .. " ++ show r
-  show (EMatch what branches) = "match " ++ show what ++ " to " ++ showBlock (map (\(pat, body) -> show pat ++ " -> " ++ show body) branches)
+showExpr (ELit s) = "\"" <> s <> "\""
+showExpr (EApp id args) = id <> commaList (map showExpr args)
+showExpr (ECat l r) = showExpr l <> " .. " <> showExpr r
+showExpr (EMatch what branches) = "match " <> showExpr what <> " to " <> showBlock (map (\(pat, body) -> showPattern pat <> " -> " <> showBody body) branches)
 
-instance Show Pattern where
-  show (PLit s) = "\"" ++ unpack s ++ "\""
-  show (PWild x) = unpack x
-  show (PCat l r) = show l ++ " .. " ++ show r
+showPattern (PLit s) = "\"" <>  s <> "\""
+showPattern (PWild x) = x
+showPattern (PCat l r) = showPattern l <> " .. " <> showPattern r
 
-instance Show Statement where
-  show (SExpr e) = show e
-  show (SFunction id params body) =
-    "let " ++ unpack id ++ commaList (map unpack params) ++ show body
+showStatement (SExpr e) = showExpr e
+showStatement (SFunction id params body) = "let " <> id <> commaList params <> showBody body
