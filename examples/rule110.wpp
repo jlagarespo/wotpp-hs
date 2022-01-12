@@ -1,0 +1,45 @@
+let rule110(x) {
+	let sim("") ""
+	let sim(x) {
+		let next(x)
+			match x to {
+				" " .. xs -> xs
+				"X" .. xs -> xs
+			}
+
+		match x to {
+			"XXX" .. _ -> " "
+			"XX " .. _ -> "X"
+			"X X" .. _ -> "X"
+			"X  " .. _ -> " "
+			" XX" .. _ -> "X"
+			" X " .. _ -> "X"
+			"  X" .. _ -> "X"
+			"   " .. _ -> " "
+			"XX" -> "X"
+			"X " -> " "
+			" X" -> "X"
+			"  " -> " "
+			"X"  -> " "
+			" "  -> " "
+		} .. sim(next(x))
+	}
+	" " .. sim(x) .. " "
+}
+
+#[ Here you choose the starting pattern. The one that proves universality is infinitely long, but
+   you get the idea. ]
+let pattern "   X  XX XXXXX   X  XX XXXXX   X  XX XXXXX   X  XX XXXXX   X  XX XXXXX"
+
+pattern "\n"
+rule110(pattern) "\n"
+rule110(rule110(pattern)) "\n"
+rule110(rule110(rule110(pattern))) "\n"
+rule110(rule110(rule110(rule110(pattern)))) "\n"
+rule110(rule110(rule110(rule110(rule110(pattern))))) "\n"
+rule110(rule110(rule110(rule110(rule110(rule110(pattern)))))) "\n"
+rule110(rule110(rule110(rule110(rule110(rule110(rule110(pattern))))))) "\n"
+rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(pattern)))))))) "\n"
+rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(pattern))))))))) "\n"
+rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(rule110(pattern)))))))))) "\n"
+#[ Ad nauseam... ]
