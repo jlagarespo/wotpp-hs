@@ -1,0 +1,17 @@
+let not("true") "false"
+let not("false") "true"
+
+let or("false", "false") "false"
+let or(_, _) "true"
+
+let parseSum(x .. "+" .. y .. "=" .. z) x .. ", " .. y .. ", " .. z
+
+not("true") "\n" #[ false ]
+not("false") "\n" #[ true ]
+
+or("false", "false") "\n" #[ false ]
+or("true", "false") "\n" #[ true ]
+or("false", "true") "\n" #[ true ]
+or("true", "true") "\n" #[ true ]
+
+parseSum("1+2=3") "\n" #[ 1, 2, 3 ]

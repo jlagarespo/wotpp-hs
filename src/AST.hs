@@ -7,7 +7,7 @@ type Identifier = Text
 data Body = Body [Statement] Expr
 data Expr = ELit Text | EApp Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Pattern, Body)]
 data Pattern = PLit Text | PWild Identifier | PCat Pattern Pattern
-data Statement = SExpr Expr | SFunction Identifier [Identifier] Body
+data Statement = SExpr Expr | SFunction Identifier [Pattern] Body
 
 commaList :: [Text] -> Text
 commaList [] = ""
@@ -29,4 +29,4 @@ showPattern (PWild x) = x
 showPattern (PCat l r) = showPattern l <> " .. " <> showPattern r
 
 showStatement (SExpr e) = showExpr e
-showStatement (SFunction id params body) = "let " <> id <> commaList params <> showBody body
+showStatement (SFunction id params body) = "let " <> id <> commaList (map showPattern params) <> showBody body

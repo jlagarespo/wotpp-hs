@@ -13,13 +13,13 @@ import Lexer
 -- TODO: Implement warnings.
 
 expr :: Parser Expr
-expr = (invoke <|> literal <|> match) `chainl1` cat
+expr = (app <|> literal <|> match) `chainl1` cat
 
 literal :: Parser Expr
 literal = ELit <$> stringLiteral
 
-invoke :: Parser Expr
-invoke = do
+app :: Parser Expr
+app = do
   id <- identifier
   args <- option [] $ parens $ commaSep expr
   pure $ EApp id args
@@ -59,7 +59,7 @@ function :: Parser Statement
 function = do
   symbol "let"
   name <- identifier
-  params <- option [] $ parens $ commaSep identifier
+  params <- option [] $ parens $ commaSep patt
   b <- body
   pure $ SFunction name params b
 

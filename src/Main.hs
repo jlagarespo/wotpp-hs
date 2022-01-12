@@ -24,6 +24,6 @@ main = do
            <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell.")
 
   source <- IO.getContents
-  case parseDocument source >>= evalDocument newenv of
+  case parseDocument source >>= evalDocument of
     Left err -> IO.putStrLn $ showError err
     Right x  -> IO.putStrLn x
