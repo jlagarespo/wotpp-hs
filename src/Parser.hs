@@ -16,7 +16,7 @@ expr :: Parser Expr
 expr = (app <|> literal <|> match) `chainl1` cat
 
 literal :: Parser Expr
-literal = ELit <$> stringLiteral
+literal = stringLiteral
 
 app :: Parser Expr
 app = do
@@ -46,10 +46,13 @@ match = do
       pure (l, r)
 
 patt :: Parser Pattern
-patt = (pattLiteral <|> wildLiteral) `chainl1` pattCat
+patt = (pattWild <|> pattLit) `chainl1` pattCat
   where
-    pattLiteral = PLit <$> stringLiteral
-    wildLiteral = PWild <$> identifier
+    -- pattExpr = PExpr <$> expr
+    pattLit = literal >>= \case
+      ELit x -> pure $ PLit x
+      _      -> unexpected "non-builtin escapes (which are disallowed in pattern literals until I find a way to evaluate them.)"
+    pattWild = PWild <$> identifier
     pattCat = infixOp ".." PCat
 
 statement :: Parser Statement

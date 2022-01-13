@@ -24,7 +24,8 @@ let rule110(x) {
 			" "  -> " "
 		} .. sim(next(x))
 	}
-	" " .. sim(x) .. " "
+
+	" " .. sim(x)
 }
 
 #[ Here you choose the starting pattern. The one that proves universality is infinitely long, but

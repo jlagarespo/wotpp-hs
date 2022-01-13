@@ -15,7 +15,7 @@ import Text.Parsec.Text.Lazy (Parser)
 
 import AST
 import Error
-import Util (firstOne)
+import Util (firstOne, unimplemented)
 
 data Function = Function [Pattern] Body
 data Env = Env
