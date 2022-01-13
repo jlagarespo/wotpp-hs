@@ -65,19 +65,22 @@ stringLiteral = lexeme $ try $ between (char '"') (char '"') (fullStr $ satisfy 
       id <- identifier
       params <- option [] $ braces $ commaSep $ fullStr $ satisfy (`notElem` ("\\,}"::String))
 
-      case id of
-        "a"  -> pure $ ELit "\a"
-        "b"  -> pure $ ELit "\b"
-        "f"  -> pure $ ELit "\f"
-        "n"  -> pure $ ELit "\n"
-        "r"  -> pure $ ELit "\r"
-        "t"  -> pure $ ELit "\t"
-        "v"  -> pure $ ELit "\v"
-        "\\" -> pure $ ELit "\\"
-        "\"" -> pure $ ELit "\""
-        "'"  -> pure $ ELit "'"
-        "&"  -> pure $ ELit ""
-        _    -> pure $ EApp id params
+      pure $
+        if not $ null params
+        then EApp id params
+        else case id of
+               "a"  -> ELit "\a"
+               "b"  -> ELit "\b"
+               "f"  -> ELit "\f"
+               "n"  -> ELit "\n"
+               "r"  -> ELit "\r"
+               "t"  -> ELit "\t"
+               "v"  -> ELit "\v"
+               "\\" -> ELit "\\"
+               "\"" -> ELit "\""
+               "'"  -> ELit "'"
+               "&"  -> ELit ""
+               _    -> EApp id []
 
 comment :: ParsecT Text () Identity ()
 comment = symbol "#[" >> inComment

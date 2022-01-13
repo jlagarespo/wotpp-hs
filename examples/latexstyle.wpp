@@ -1,0 +1,4 @@
+let b(x) "<strong>" .. x .. "</strong>"
+let i(x) "<em>" .. x .. "</em>"
+
+"This is some \b{bold text}. This one is \i{italic}. This one is \b{\i{both}}!"
