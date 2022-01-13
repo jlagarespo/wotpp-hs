@@ -1,0 +1,5 @@
+let test "test"
+let test(x) x
+let test(x, y) x .. y
+
+"\test; \test{hi}; \test{hi, bye}; \\\&test\&{hi}; \test{hi\, bye}"

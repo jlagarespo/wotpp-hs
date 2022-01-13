@@ -32,7 +32,7 @@ identifier = lexeme $ try $ do
     else pure $ L.pack str
 
   where
-    identChar = alphaNum <|> digit <|> oneOf "'_"
+    identChar = alphaNum <|> oneOf "'_"
     keywords = ["let", "match", "to"]
     isKeyword = (`elem` keywords)
 
@@ -62,8 +62,11 @@ stringLiteral = lexeme $ try $ between (char '"') (char '"') (fullStr $ satisfy 
     strEscape :: Parser Expr
     strEscape = do
       char '\\'
-      id <- identifier
-      params <- option [] $ braces $ commaSep $ fullStr $ satisfy (`notElem` ("\\,}"::String))
+      id <- (L.singleton <$> oneOf "\\\",&") <|> identifier
+      params <-
+        if id /= "&"
+          then option [] $ braces $ commaSep $ fullStr $ satisfy (`notElem` ("\\,}"::String))
+          else pure []
 
       pure $
         if not $ null params
@@ -78,7 +81,7 @@ stringLiteral = lexeme $ try $ between (char '"') (char '"') (fullStr $ satisfy 
                "v"  -> ELit "\v"
                "\\" -> ELit "\\"
                "\"" -> ELit "\""
-               "'"  -> ELit "'"
+               ","  -> ELit ","
                "&"  -> ELit ""
                _    -> EApp id []
 

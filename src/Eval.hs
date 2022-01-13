@@ -60,7 +60,7 @@ evalExpr env e@(EApp id args) = do
         let chosen = firstOne $
                      map (\f@(Function params _) ->
                             let wildcards = zipWith fitPattern argValues params
-                            in if length argValues == length params && any isNothing wildcards
+                            in if length argValues /= length params || any isNothing wildcards
                                then Nothing
                                else Just (f, concat $ catMaybes wildcards)) candidates
 
