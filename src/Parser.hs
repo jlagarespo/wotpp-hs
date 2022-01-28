@@ -127,7 +127,7 @@ body = braces block <|> (Body [] <$> expr)
         _ -> fail "The last statement of a block must be an expression."
 
 document :: Parser [Statement]
-document = many statement <* eof
+document = futile >> many statement <* eof
 
 parseDocument :: Text -> Text -> ExceptT Error IO [Statement]
 parseDocument x sourceName =

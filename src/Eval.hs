@@ -95,7 +95,7 @@ evalExpr e@(EApp id args) = do
   let newenv = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
                    , trace = TraceFunc id args:trace env }
 
-  -- Evaluate all the statements to acquire our final environment.
+  -- Evaluate our body.
   evalPure newenv $ evalBody body
 
 evalExpr e@(EBuiltin name args) = do
@@ -112,7 +112,7 @@ evalExpr e@(EBuiltin name args) = do
                L.concat <$> mapM evalStatement statements) ]
 
 evalExpr (ECat l r) = do
-  -- Concat.
+  -- Evaluate two expressions and concat their results.
   l' <- evalExpr l
   r' <- evalExpr r
   pure $ l' <> r'
@@ -161,7 +161,7 @@ evalBody (Body statements expr) = do
 evalStatement :: Statement -> Eval Text
 evalStatement (SExpr expr) = do
   env <- get
-  put $ env { trace = TraceExpr expr:trace env }
+  put env { trace = TraceExpr expr:trace env }
   evalExpr expr
 
 evalStatement (SFunction id params body) = do
@@ -176,6 +176,8 @@ evalStatement (SFunction id params body) = do
 
 evalStatement (SInclude fileExpr) = do
   filename <- evalExpr fileExpr
+  -- TODO: Proper error when file doesn't exist.
+  -- TODO: Proper search path.
   source <- liftIO $ IO.readFile (L.unpack filename)
   statements <- lift $ parseDocument source filename
   -- L.concat <$> mapM evalStatement statements

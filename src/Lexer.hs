@@ -16,9 +16,9 @@ lexeme p = do
   futile
   pure x
 
-  where
-    futile = skipMany $ whitespace <|> comment
-    whitespace = space >> pure ()
+futile, whitespace :: Parser ()
+futile = skipMany $ whitespace <|> comment
+whitespace = space >> pure ()
 
 symbol = (L.pack<$>) . lexeme . try . string . L.unpack
 

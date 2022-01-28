@@ -16,16 +16,11 @@ let rule110(x) {
 			" X " .. _ -> "X"
 			"  X" .. _ -> "X"
 			"   " .. _ -> " "
-			"XX" -> "X"
-			"X " -> " "
-			" X" -> "X"
-			"  " -> " "
-			"X"  -> " "
-			" "  -> " "
+			_ -> ""
 		} .. sim(next(x))
 	}
 
-	" " .. sim(x)
+	sim(" " .. x .. " ")
 }
 
 #[ Here you choose the starting pattern. The one that proves universality is infinitely long, but
