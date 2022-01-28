@@ -10,8 +10,6 @@ import qualified Data.Text.Lazy as L
 
 import Data.Functor.Identity (Identity)
 
-import AST
-
 lexeme :: Parser a -> Parser a
 lexeme p = do
   x <- p
@@ -33,7 +31,7 @@ identifier = lexeme $ try $ do
 
   where
     identChar = alphaNum <|> oneOf "'_"
-    keywords = ["let", "match", "to"]
+    keywords = ["let", "match", "to", "__builtin"]
     isKeyword = (`elem` keywords)
 
 parens, braces :: Parser a -> Parser a
@@ -43,47 +41,6 @@ braces = between (symbol "{") (symbol "}")
 commaSep, commaSep1 :: Parser a -> Parser [a]
 commaSep = (`sepBy` symbol ",")
 commaSep1 = (`sepBy1` symbol ",")
-
-stringLiteral :: Parser Expr
-stringLiteral = lexeme $ try $ between (char '"') (char '"') (fullStr $ satisfy (`notElem` ("\"\\"::String)))
-  where
-    fullStr :: Parser Char -> Parser Expr
-    fullStr char = do
-      parts <- many (strEscape <|> strSection char)
-      if null parts
-        then pure $ ELit ""
-        else pure $ foldl1 ECat parts
-
-    strSection :: Parser Char -> Parser Expr
-    strSection char = do
-      str <- many1 char
-      pure $ ELit $ L.pack str
-
-    strEscape :: Parser Expr
-    strEscape = do
-      char '\\'
-      id <- (L.singleton <$> oneOf "\\\",&") <|> identifier
-      params <-
-        if id /= "&"
-          then option [] $ braces $ commaSep $ fullStr $ satisfy (`notElem` ("\\,}"::String))
-          else pure []
-
-      pure $
-        if not $ null params
-        then EApp id params
-        else case id of
-               "a"  -> ELit "\a"
-               "b"  -> ELit "\b"
-               "f"  -> ELit "\f"
-               "n"  -> ELit "\n"
-               "r"  -> ELit "\r"
-               "t"  -> ELit "\t"
-               "v"  -> ELit "\v"
-               "\\" -> ELit "\\"
-               "\"" -> ELit "\""
-               ","  -> ELit ","
-               "&"  -> ELit ""
-               _    -> EApp id []
 
 comment :: ParsecT Text () Identity ()
 comment = symbol "#[" >> inComment

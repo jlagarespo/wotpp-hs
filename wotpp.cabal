@@ -23,7 +23,7 @@ source-repository head
   type: git
   location: https://github.com/jlagarespo/wotpp-hs
 
-executable wotpp-exe
+executable wotpp
   main-is: Main.hs
   other-modules:
       AST
@@ -44,6 +44,7 @@ executable wotpp-exe
   build-depends:
       base >=4.7 && <5
     , hashable
+    , mtl
     , optparse-applicative
     , parsec
     , text

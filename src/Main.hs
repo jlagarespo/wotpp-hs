@@ -2,7 +2,6 @@ module Main where
 
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as IO
-import Text.Parsec
 
 import Options.Applicative
 import Data.Semigroup ((<>))
@@ -28,7 +27,7 @@ main = do
            <> progDesc "A dialect of the beloved wot++ programming language, written in Haskell.")
 
   source <- IO.getContents
-  let document = parseDocument source
+  let document = parseDocument source "<stdin>"
 
   case document of
     Left err -> IO.putStrLn $ showError err

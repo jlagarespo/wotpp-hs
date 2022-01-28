@@ -13,22 +13,13 @@ import Lexer
 -- TODO: Implement warnings.
 
 expr :: Parser Expr
-expr = (app <|> literal <|> match) `chainl1` cat
+expr = (prefixApp <|> match <|> literal <|> builtin) `chainl1` cat
 
-literal :: Parser Expr
-literal = stringLiteral
-
-app :: Parser Expr
-app = do
+prefixApp :: Parser Expr
+prefixApp = do
   id <- identifier
   args <- option [] $ parens $ commaSep expr
   pure $ EApp id args
-
-infixOp :: Text -> (a -> a -> a) -> Parser (a -> a -> a)
-infixOp x f = symbol x >> pure f
-
-cat :: Parser (Expr -> Expr -> Expr)
-cat = infixOp ".." ECat
 
 match :: Parser Expr
 match = do
@@ -44,6 +35,60 @@ match = do
       symbol "->"
       r <- body
       pure (l, r)
+
+literal :: Parser Expr
+literal = lexeme $ try $ between (char '"') (char '"') (fullStr $ satisfy (`notElem` ("\"\\"::String)))
+  where
+    fullStr :: Parser Char -> Parser Expr
+    fullStr char = do
+      parts <- many (strEscape <|> strSection char)
+      if null parts
+        then pure $ ELit ""
+        else pure $ foldl1 ECat parts
+
+    strSection :: Parser Char -> Parser Expr
+    strSection char = do
+      str <- many1 char
+      pure $ ELit $ L.pack str
+
+    strEscape :: Parser Expr
+    strEscape = do
+      char '\\'
+      id <- (L.singleton <$> oneOf "\\\",&") <|> identifier
+      params <-
+        if id /= "&"
+          then option [] $ braces $ commaSep $ fullStr $ satisfy (`notElem` ("\\,}"::String))
+          else pure []
+
+      pure $
+        if not $ null params
+        then EApp id params
+        else case id of
+               "a"  -> ELit "\a"
+               "b"  -> ELit "\b"
+               "f"  -> ELit "\f"
+               "n"  -> ELit "\n"
+               "r"  -> ELit "\r"
+               "t"  -> ELit "\t"
+               "v"  -> ELit "\v"
+               "\\" -> ELit "\\"
+               "\"" -> ELit "\""
+               ","  -> ELit ","
+               "&"  -> ELit ""
+               _    -> EApp id []
+
+infixOp :: Text -> (a -> a -> a) -> Parser (a -> a -> a)
+infixOp x f = symbol x >> pure f
+
+cat :: Parser (Expr -> Expr -> Expr)
+cat = infixOp ".." ECat
+
+builtin :: Parser Expr
+builtin = do
+  symbol "__builtin"
+  name <- identifier
+  args <- option [] $ parens $ commaSep expr
+  pure $ EBuiltin name args
 
 patt :: Parser Pattern
 patt = (pattWild <|> pattLit) `chainl1` pattCat
@@ -80,7 +125,8 @@ body = braces block <|> (Body [] <$> expr)
 document :: Parser [Statement]
 document = many statement <* eof
 
-parseDocument :: Text -> Either Error [Statement]
-parseDocument x = case parse document "<stdin>" x of
-                    Left err -> Left $ ParseErr err
-                    Right x  -> Right x
+parseDocument :: Text -> Text -> Either Error [Statement]
+parseDocument x sourceName =
+  case parse document (L.unpack sourceName) x of
+    Left err -> Left $ ParseErr err
+    Right x  -> Right x

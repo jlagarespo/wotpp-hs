@@ -5,7 +5,7 @@ import qualified Data.Text.Lazy as L
 
 type Identifier = Text
 data Body = Body [Statement] Expr deriving Show
-data Expr = ELit Text | EApp Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Pattern, Body)] deriving Show
+data Expr = ELit Text | EApp Identifier [Expr] | EBuiltin Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Pattern, Body)] deriving Show
 data Pattern = PLit Text | PWild Identifier | PCat Pattern Pattern deriving Show
 data Statement = SExpr Expr | SFunction Identifier [Pattern] Body deriving Show
 
@@ -23,6 +23,7 @@ showBody (Body statements expr) = showBlock $ map showStatement statements <> [s
 showExpr :: Expr -> Identifier
 showExpr (ELit s) = "\"" <> s <> "\""
 showExpr (EApp id args) = id <> commaList (map showExpr args)
+showExpr (EBuiltin id args) = "__builtin" <> id <> commaList (map showExpr args)
 showExpr (ECat l r) = showExpr l <> " .. " <> showExpr r
 showExpr (EMatch what branches) = "match " <> showExpr what <> " to " <> showBlock (map (\(pat, body) -> showPattern pat <> " -> " <> showBody body) branches)
 

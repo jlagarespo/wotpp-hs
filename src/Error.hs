@@ -9,7 +9,8 @@ import AST
 
 data EvalError = NotInScope Identifier Int |
                  FunctionMatchFail Identifier Int Int |
-                 MatchFail Expr Int
+                 MatchFail Expr Int |
+                 NoBuiltin Identifier
 data Error = EvalErr EvalError Expr Backtrace | ParseErr ParseError
 
 data TraceElement = TraceFunc Identifier [Expr] | TraceExpr Expr | TraceBranch [(Identifier, Text)] Pattern Body
@@ -29,9 +30,10 @@ showTraceElement (TraceBranch wildcards patt body) =
   " -> " <> showBody body
 
 showEvalError :: EvalError -> Text
-showEvalError (NotInScope id args) = "Failed to appply " <> showtl args <> " arguments to function " <> id <> ", which is not in scope."
+showEvalError (NotInScope id args) = "Failed to apply " <> showtl args <> " arguments to function " <> id <> ", which is not in scope."
 showEvalError (FunctionMatchFail id args count) = "Failed to match " <> id <> " (" <> showtl args <> " arguments) against " <> showtl count <> " candidates."
 showEvalError (MatchFail what n) = "Failed to match " <> showExpr what <> " against " <> showtl n <> " patterns. Please ensure all your matches are exhaustive."
+showEvalError (NoBuiltin name) = "No builtin named " <> name <> "."
 
 showError :: Error -> Text
 showError (EvalErr err expr trace) = "eval error:\n• " <> showEvalError err <> "\n" <> showTrace trace

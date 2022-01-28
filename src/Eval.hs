@@ -1,5 +1,7 @@
 module Eval where
 
+import Control.Monad.State.Lazy
+
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as L
 
@@ -9,12 +11,13 @@ import qualified Data.HashMap.Strict as HM
 import Data.Bifunctor (second)
 import Data.List (find)
 import Data.Maybe (mapMaybe, catMaybes, isJust, isNothing, fromJust, listToMaybe)
-import Data.Hashable
+import Data.Hashable (Hashable)
 
 import Text.Parsec.Text.Lazy (Parser)
 
 import AST
 import Error
+import Parser
 import Util (firstOne, unimplemented)
 
 data Function = Function [Pattern] Body
@@ -23,8 +26,7 @@ data Env = Env
   , arguments :: HashMap Identifier Expr
   , trace :: Backtrace }
 
-evalError :: Env -> Expr -> EvalError -> Either Error a
-evalError (Env _ _ trace) expr err = Left $ EvalErr err expr trace
+type Eval = StateT Env (Either Error)
 
 newenv :: Env
 newenv = Env empty empty []
@@ -32,15 +34,29 @@ newenv = Env empty empty []
 insertMany :: (Eq k, Hashable k) => HashMap k v -> [(k, v)] -> HashMap k v
 insertMany = foldl (\hm (k, v) -> HM.insert k v hm)
 
+evalError :: Expr -> EvalError -> Eval a
+evalError expr err = do
+  (Env _ _ trace) <- get
+  lift $ Left $ EvalErr err expr trace
+
+evalPure :: Env -> Eval a -> Eval a
+evalPure env x = do
+  env' <- get
+  put env
+  result <- x
+  put env'
+  pure result
+
 -- |Evaluate an expression.
-evalExpr :: Env -> Expr -> Either Error Text
-evalExpr _ (ELit str) = pure str
-evalExpr env e@(EApp id args) = do
+evalExpr :: Expr -> Eval Text
+evalExpr (ELit str) = pure str
+evalExpr e@(EApp id args) = do
   -- Evaluate args. (sadly, since we need to pattern match them against function candidates, we need
   -- to know their value, hence why we cannot build a thunk and lazily evaluate them.) That is
   -- except for parameters that are just a wildcard. TODO: Look for only-wildcard parameters and
   -- lazily evaluate them.
-  argValues <- mapM (evalExpr env) args
+  argValues <- mapM evalExpr args
+  env <- get
 
   -- Retrieve function from environment.
   (Function params body, wildcards) <-
@@ -52,7 +68,7 @@ evalExpr env e@(EApp id args) = do
         -- Retrieve all functions with identifier 'id' from the environment.
         candidates <-
           case functions env !? id of
-            Nothing -> evalError env e $ NotInScope id (length args)
+            Nothing -> evalError e $ NotInScope id (length args)
             Just fs -> pure fs
 
         -- Try to match the provided arguments against their respective patterns (the function's
@@ -66,28 +82,41 @@ evalExpr env e@(EApp id args) = do
 
         -- Take the first candidate that matches and return it. If none do, throw an error.
         case chosen of
-          Nothing -> evalError env e $ FunctionMatchFail id (length args) (length candidates)
+          Nothing -> evalError e $ FunctionMatchFail id (length args) (length candidates)
           Just r  -> pure r
 
       -- Otherwise, it must be an argument.
       Just arg -> pure (Function [] $ Body [] arg, [])
 
   -- Add arguments to the environment as parameterless functions (constants.)
-  let env' = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
-                 , trace = TraceFunc id args:trace env }
+  let newenv = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
+                   , trace = TraceFunc id args:trace env }
 
   -- Evaluate all the statements to acquire our final environment.
-  evalBody env' body
+  evalPure newenv $ evalBody body
 
-evalExpr env (ECat l r) = do
+evalExpr e@(EBuiltin name args) = do
+  argValues <- mapM evalExpr args
+  case builtins !? name of
+    Just builtin -> builtin argValues
+    Nothing -> evalError e $ NoBuiltin name
+
+  where
+    builtins :: HashMap Text ([Text] -> Eval Text)
+    builtins = HM.fromList
+      [ ("eval", \args ->
+            let source = L.concat args
+            in lift $ parseDocument source "<eval>" >>= evalDocument) ]
+
+evalExpr (ECat l r) = do
   -- Concat.
-  l' <- evalExpr env l
-  r' <- evalExpr env r
+  l' <- evalExpr l
+  r' <- evalExpr r
   pure $ l' <> r'
 
-evalExpr env e@(EMatch what branches) = do
+evalExpr e@(EMatch what branches) = do
   -- Evaluate the string we are going to be matching against.
-  str <- evalExpr env what
+  str <- evalExpr what
 
   -- Attempt to match that string against every branch.
   let chosen = firstOne $ map (\(patt, body) -> do wildcards <- fitPattern str patt
@@ -95,17 +124,22 @@ evalExpr env e@(EMatch what branches) = do
 
   -- We take the first succesful match and evaluate the right-hand side. If none match, error.
   case chosen of
-    Just (wildcards, patt, body) ->
-      let env' = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
-                     , trace = TraceBranch wildcards patt body:trace env }
-      in evalBody env' body
-    Nothing -> evalError env e $ MatchFail what (length branches)
+    Just (wildcards, patt, body) -> do
+      env <- get
+      let newenv = env { arguments = insertMany (arguments env) (map (second ELit) wildcards)
+                       , trace = TraceBranch wildcards patt body:trace env }
+      evalPure newenv $ evalBody body
+    Nothing -> evalError e $ MatchFail what (length branches)
 
 -- |Fairly inefficient string pattern matching algorithm.
 fitPattern :: Text -> Pattern -> Maybe [(Identifier, Text)]
 fitPattern input (PLit x) =
   if input == x then Just [] else Nothing
 fitPattern input (PWild id) = Just [(id, input)]
+fitPattern input (PCat l@(PLit lit) r) = do
+  l' <- fitPattern (L.take (L.length lit) input) l
+  r' <- fitPattern (L.drop (L.length lit) input) r
+  pure $ l' ++ r'
 fitPattern input (PCat l r) =
   let candidates =
         mapMaybe (\(init, tail) -> do l' <- fitPattern init l
@@ -115,32 +149,28 @@ fitPattern input (PCat l r) =
 
 -- |Evaluate every statement of a body, and use the generate environment to evaluate and return the
 -- trailing expression.
-evalBody :: Env -> Body -> Either Error Text
-evalBody env (Body statements expr) = do
-  env' <- foldl (\e statement -> do
-                    env <- e
-                    (_, env') <- evalStatement env statement
-                    pure env') (pure env) statements
-  evalExpr env' expr
+evalBody :: Body -> Eval Text
+evalBody (Body statements expr) = do
+  mapM_ evalStatement statements
+  evalExpr expr
 
 -- |Evaluate a statement.
-evalStatement :: Env -> Statement -> Either Error (Text, Env)
-evalStatement env (SExpr expr) = do
-  str <- evalExpr (env { trace = TraceExpr expr:trace env }) expr
-  pure (str, env)
+evalStatement :: Statement -> Eval Text
+evalStatement (SExpr expr) = do
+  env <- get
+  put $ env { trace = TraceExpr expr:trace env }
+  evalExpr expr
 
-evalStatement env (SFunction id params body) =
+evalStatement (SFunction id params body) = do
   -- TODO: Function shadowing warnings (or errors?).
+  env <- get
   let func = Function params body
       env' = env { functions = HM.alter (\case Just fs -> Just $ fs ++ [func]
                                                Nothing -> Just [func])
                                id (functions env) }
-  in pure ("", env')
+  put env'
+  pure ""
 
 -- |Evaluate a list of statements, and concat their results.
 evalDocument :: [Statement] -> Either Error Text
-evalDocument statements =
-  fst <$> foldl (\acc statement -> do
-                    (str, env) <- acc
-                    (str', env') <- evalStatement env statement
-                    pure (str <> str', env')) (pure ("", newenv)) statements
+evalDocument statements = evalStateT (L.concat <$> mapM evalStatement statements) newenv
