@@ -7,7 +7,7 @@ type Identifier = Text
 data Body = Body [Statement] Expr deriving Show
 data Expr = ELit Text | EApp Identifier [Expr] | EBuiltin Identifier [Expr] | ECat Expr Expr | EMatch Expr [(Pattern, Body)] deriving Show
 data Pattern = PLit Text | PWild Identifier | PCat Pattern Pattern deriving Show
-data Statement = SExpr Expr | SFunction Identifier [Pattern] Body deriving Show
+data Statement = SExpr Expr | SFunction Identifier [Pattern] Body | SInclude Expr deriving Show
 
 commaList :: [Text] -> Text
 commaList [] = ""
@@ -36,3 +36,4 @@ showPattern (PCat l r) = showPattern l <> " .. " <> showPattern r
 showStatement :: Statement -> Identifier
 showStatement (SExpr e) = showExpr e
 showStatement (SFunction id params body) = "let " <> id <> commaList (map showPattern params) <> " " <> showBody body
+showStatement (SInclude text) = "include " <> showExpr text

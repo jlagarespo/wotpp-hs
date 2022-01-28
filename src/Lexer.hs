@@ -31,7 +31,7 @@ identifier = lexeme $ try $ do
 
   where
     identChar = alphaNum <|> oneOf "'_"
-    keywords = ["let", "match", "to", "__builtin"]
+    keywords = ["let", "match", "to", "__builtin", "include"]
     isKeyword = (`elem` keywords)
 
 parens, braces :: Parser a -> Parser a

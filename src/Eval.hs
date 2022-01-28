@@ -1,8 +1,11 @@
 module Eval where
 
 import Control.Monad.State.Lazy
+import Control.Monad.IO.Class
+import Control.Monad.Except
 
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy.IO as IO
 import qualified Data.Text.Lazy as L
 
 import Data.HashMap.Strict (HashMap, empty, (!?))
@@ -26,7 +29,7 @@ data Env = Env
   , arguments :: HashMap Identifier Expr
   , trace :: Backtrace }
 
-type Eval = StateT Env (Either Error)
+type Eval = StateT Env (ExceptT Error IO)
 
 newenv :: Env
 newenv = Env empty empty []
@@ -37,7 +40,7 @@ insertMany = foldl (\hm (k, v) -> HM.insert k v hm)
 evalError :: Expr -> EvalError -> Eval a
 evalError expr err = do
   (Env _ _ trace) <- get
-  lift $ Left $ EvalErr err expr trace
+  lift $ throwError $ EvalErr err expr trace
 
 evalPure :: Env -> Eval a -> Eval a
 evalPure env x = do
@@ -105,8 +108,8 @@ evalExpr e@(EBuiltin name args) = do
     builtins :: HashMap Text ([Text] -> Eval Text)
     builtins = HM.fromList
       [ ("eval", \args ->
-            let source = L.concat args
-            in lift $ parseDocument source "<eval>" >>= evalDocument) ]
+            do statements <- lift $ parseDocument (L.concat args) "<eval>"
+               L.concat <$> mapM evalStatement statements) ]
 
 evalExpr (ECat l r) = do
   -- Concat.
@@ -147,7 +150,7 @@ fitPattern input (PCat l r) =
                                       pure $ l' ++ r')
         (zip (L.inits input) (L.tails input)) in listToMaybe candidates
 
--- |Evaluate every statement of a body, and use the generate environment to evaluate and return the
+-- |Evaluate every statement of a body, and use the resulting environment to evaluate and return the
 -- trailing expression.
 evalBody :: Body -> Eval Text
 evalBody (Body statements expr) = do
@@ -171,6 +174,14 @@ evalStatement (SFunction id params body) = do
   put env'
   pure ""
 
+evalStatement (SInclude fileExpr) = do
+  filename <- evalExpr fileExpr
+  source <- liftIO $ IO.readFile (L.unpack filename)
+  statements <- lift $ parseDocument source filename
+  -- L.concat <$> mapM evalStatement statements
+  mapM_ evalStatement statements
+  pure ""
+
 -- |Evaluate a list of statements, and concat their results.
-evalDocument :: [Statement] -> Either Error Text
+evalDocument :: [Statement] -> ExceptT Error IO Text
 evalDocument statements = evalStateT (L.concat <$> mapM evalStatement statements) newenv

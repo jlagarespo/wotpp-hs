@@ -1,5 +1,6 @@
 module Parser where
 
+import Control.Monad.Except
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as L
 import Text.Parsec
@@ -101,7 +102,7 @@ patt = (pattWild <|> pattLit) `chainl1` pattCat
     pattCat = infixOp ".." PCat
 
 statement :: Parser Statement
-statement = (SExpr <$> expr) <|> function
+statement = (SExpr <$> expr) <|> function <|> include
 
 function :: Parser Statement
 function = do
@@ -110,6 +111,9 @@ function = do
   params <- option [] $ parens $ commaSep patt
   b <- body
   pure $ SFunction name params b
+
+include :: Parser Statement
+include = symbol "include" >> SInclude <$> expr
 
 body :: Parser Body
 body = braces block <|> (Body [] <$> expr)
@@ -125,8 +129,8 @@ body = braces block <|> (Body [] <$> expr)
 document :: Parser [Statement]
 document = many statement <* eof
 
-parseDocument :: Text -> Text -> Either Error [Statement]
+parseDocument :: Text -> Text -> ExceptT Error IO [Statement]
 parseDocument x sourceName =
   case parse document (L.unpack sourceName) x of
-    Left err -> Left $ ParseErr err
-    Right x  -> Right x
+    Left err -> throwError $ ParseErr err
+    Right x  -> pure x

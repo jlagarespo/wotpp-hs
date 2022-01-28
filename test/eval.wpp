@@ -1,2 +1,2 @@
 let eval(x) __builtin eval(x)
-eval("\"hello, world\" .. .. \"!\"")
+eval("\"hello, world\" .. \"!\"")
